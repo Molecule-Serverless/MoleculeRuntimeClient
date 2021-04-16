@@ -31,8 +31,10 @@ COMMANDS:
             TODO
 
 ```
+Example:
 ``` bash
-./molecule_rpc_client 
+# Suppose there's a server running with id 1 and a global os listening on port 65259
+./molecule_rpc_client cfork -i 1 -t temp -p endp 
 ```
 ## PROTOCOL
 TODO
