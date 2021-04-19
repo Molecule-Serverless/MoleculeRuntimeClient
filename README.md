@@ -15,10 +15,11 @@ DEFAULT ARGS:
 
 COMMANDS:
     run: run a container
-        ARGS: TODO
+        ARGS: -c <container_id> -b <bundle_path>
         DEFAULT ARGS:
-            TODO
-
+            container_id: container_id
+            bundle_path: $HOME/.base/baseline/
+            
     cfork: fork a container from template to endpoint
         ARGS: -t <template_container_id> -e <endpoint_container_id>
         DEFAULT ARGS:
