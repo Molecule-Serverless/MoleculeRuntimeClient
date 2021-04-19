@@ -1,3 +1,4 @@
 molecule_rpc_client
 molecule_rpc_server
 molecule_rpc_server.c
+.vscode/

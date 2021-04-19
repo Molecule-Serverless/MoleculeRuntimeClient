@@ -12,7 +12,7 @@
 #include <global_syscall_protocol.h>
 #include "molecule_rpc_client.h"
 
-void local_parse_arguments(server_args_t *server_args, int argc, char *argv[]) {
+void parse_server_arguments(server_args_t *server_args, int argc, char *argv[]) {
     // For getopt long options
 	int long_index = 0;
 	// For getopt chars
@@ -69,8 +69,44 @@ void parse_cfork_arguments(cfork_args_t *arguments, int argc, char *argv[]) {
 
 		switch (opt) {
 			case -1: return;
-			case 't': memset(arguments->template, 0, MAXIMUM_CONTAINER_ID_SIZE);strcpy(arguments->template, optarg); break;
-			case 'e': memset(arguments->endpoint, 0, MAXIMUM_CONTAINER_ID_SIZE);strcpy(arguments->endpoint, optarg); break;
+			case 't': strcpy(arguments->template, optarg); break;
+			case 'e': strcpy(arguments->endpoint, optarg); break;
+			default: continue;
+		}
+	}
+}
+
+void parse_run_arguments(run_args_t *arguments, int argc, char *argv[]) {
+    // For getopt long options
+	int long_index = 0;
+	// For getopt chars
+	int opt;
+	// Reset the option index to 1 if it
+	// was modified before (e.g. in check_flag)
+	optind = 0;
+
+	char* default_bundle = (char *)malloc(MAXIMUM_BUNDLE_SIZE);
+	sprintf(default_bundle, "%s/%s", getenv("HOME"), DEFAULT_ROOTFS);
+
+	// Default values
+	strcpy(arguments->containerID, DEFAULT_CONTAINER_ID);
+	strcpy(arguments->bundle, default_bundle);
+	free(default_bundle);
+
+	static struct option long_options[] = {
+			{"containerID",  required_argument, NULL, 'c'},
+			{"bundle",  required_argument, NULL, 'b'},
+
+			{0,       0,                 0,     0}
+	};
+
+	while (true) {
+		opt = getopt_long(argc, argv, ":c:b:", long_options, &long_index);
+
+		switch (opt) {
+			case -1: return;
+			case 'c': strcpy(arguments->containerID, optarg); break;
+			case 'b': strcpy(arguments->bundle, optarg); break;
 			default: continue;
 		}
 	}
@@ -86,16 +122,22 @@ int prepare_send_buf(char* test_buf, int argc, char *argv[], enum COMMANDS comma
 }
 
 int prepare_command_run_buf(char* test_buf, int argc, char *argv[]){
-    memset(test_buf,'l',9);
-    test_buf[9] = '\0';
-    return 10;
+	run_args_t args;
+	int size;
+	parse_run_arguments(&args, argc, argv);
+	size = sprintf(test_buf, COMMAND_RUN_FORMAT, args.containerID, args.bundle);
+    if(size < 0){
+        ERROR_ON("fail to generate a cfork test_buf");
+    }
+    test_buf[size] = '\0';
+    return size + 1;
 }
 
 int prepare_command_cfork_buf(char* test_buf, int argc, char *argv[]){
     cfork_args_t args;
     int size;
     parse_cfork_arguments(&args, argc, argv);
-    size = sprintf(test_buf, "template: %s; endpoint: %s;", args.template, args.endpoint);
+    size = sprintf(test_buf, COMMAND_CFORK_FORMAT, args.template, args.endpoint);
     if(size < 0){
         ERROR_ON("fail to generate a cfork test_buf");
     }
@@ -145,7 +187,7 @@ int main(int argc, char *argv[]) {
     int size = 10;
     /////////////////////// MUST BE DESTROYED
     server_args_t server_args;
-    local_parse_arguments(&server_args, argc - 1, argv + 1);
+    parse_server_arguments(&server_args, argc - 1, argv + 1);
     
     size = prepare_send_buf(test_buf, argc - 1, argv + 1, command);
 
@@ -157,6 +199,11 @@ int main(int argc, char *argv[]) {
 
 	//Here, the getpid is the uuid used in local fifo
 	global_fifo = global_fifo_init(getpid());
+
+	struct timeval tv;
+    gettimeofday(&tv,NULL);
+    printf("before client send ipc: %ld\n", tv.tv_sec*1000 + tv.tv_usec/1000);
+
 	global_fifo_write(server_args.server_id, test_buf, size);
 
 	return EXIT_SUCCESS;
