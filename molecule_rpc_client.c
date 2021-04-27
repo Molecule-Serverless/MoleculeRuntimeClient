@@ -53,11 +53,11 @@ void parse_cfork_arguments(cfork_args_t *arguments, int argc, char *argv[]) {
 	// Reset the option index to 1 if it
 	// was modified before (e.g. in check_flag)
 	optind = 0;
-    
+
 	// Default values
 	strcpy(arguments->template, DEFAULT_TEMPLATE_CONTAINER_ID);
 	strcpy(arguments->endpoint, DEFAULT_ENDPOINT_CONTAINER_ID);
-    
+
 	static struct option long_options[] = {
 			{"template",  required_argument, NULL, 't'},
 			{"endpoint", required_argument, NULL, 'e'},
@@ -76,6 +76,40 @@ void parse_cfork_arguments(cfork_args_t *arguments, int argc, char *argv[]) {
 	}
 }
 
+/*
+ * VCGroup has four sub-commands
+ * 	vcgroup_create(path): e.g., vcgroup_create(/sys/fs/cgroup/cpu/cg1) ->
+ * */
+void parse_vcgroup_arguments(cfork_args_t *arguments, int argc, char *argv[]) {
+    // For getopt long options
+	int long_index = 0;
+	// For getopt chars
+	int opt;
+	// Reset the option index to 1 if it
+	// was modified before (e.g. in check_flag)
+	optind = 0;
+
+	// Default values
+	strcpy(arguments->template, DEFAULT_TEMPLATE_CONTAINER_ID);
+	strcpy(arguments->endpoint, DEFAULT_ENDPOINT_CONTAINER_ID);
+
+	static struct option long_options[] = {
+			{"template",  required_argument, NULL, 't'},
+			{"endpoint", required_argument, NULL, 'e'},
+			{0,       0,                 0,     0}
+	};
+
+	while (true) {
+		opt = getopt_long(argc, argv, ":t:e:", long_options, &long_index);
+
+		switch (opt) {
+			case -1: return;
+			case 't': strcpy(arguments->template, optarg); break;
+			case 'e': strcpy(arguments->endpoint, optarg); break;
+			default: continue;
+		}
+	}
+}
 void parse_run_arguments(run_args_t *arguments, int argc, char *argv[]) {
     // For getopt long options
 	int long_index = 0;
@@ -115,8 +149,9 @@ void parse_run_arguments(run_args_t *arguments, int argc, char *argv[]) {
 int prepare_send_buf(char* test_buf, int argc, char *argv[], enum COMMANDS command){
     switch(command){
         case run: return prepare_command_run_buf(test_buf, argc, argv);
-        case cfork: return prepare_command_cfork_buf(test_buf, argc, argv); 
-        case send: return prepare_command_send_buf(test_buf, argc, argv); 
+        case cfork: return prepare_command_cfork_buf(test_buf, argc, argv);
+        case send: return prepare_command_send_buf(test_buf, argc, argv);
+	case vcgroup: return prepare_command_vcgroup_buf(test_buf, argc, argv);
         default: ERROR_ON("no such command");
     }
 }
@@ -145,6 +180,22 @@ int prepare_command_cfork_buf(char* test_buf, int argc, char *argv[]){
     return size + 1;
 }
 
+int prepare_command_vcgroup_buf(char* test_buf, int argc, char *argv[]){
+    cfork_args_t args;
+    int size;
+#if 0
+    parse_cfork_arguments(&args, argc, argv);
+    size = sprintf(test_buf, COMMAND_CFORK_FORMAT, args.template, args.endpoint);
+    if(size < 0){
+        ERROR_ON("fail to generate a cfork test_buf");
+    }
+    test_buf[size] = '\0';
+    return size + 1;
+#else
+    return 0;
+#endif
+}
+
 int prepare_command_send_buf(char* test_buf, int argc, char *argv[]){
     memset(test_buf,'l',9);
     test_buf[9] = '\0';
@@ -155,23 +206,35 @@ int main(int argc, char *argv[]) {
      if (argc < 2){
         ERROR_ON("no specified command");
     }
-    
+
     char* command_str = argv[1];
     enum COMMANDS command;
     if(strcmp(command_str, "run") == 0){
         command = run;
-    } 
+    }
     else if(strcmp(command_str, "cfork") == 0){
         command = cfork;
     }
     else if(strcmp(command_str, "send") == 0){
         command = send;
-    } 
+    }
+    else if(strcmp(command_str, "vcgroup_create") == 0){
+        command = vcgroup;
+    }
+    else if(strcmp(command_str, "vcgroup_delete") == 0){
+        command = vcgroup;
+    }
+    else if(strcmp(command_str, "vcgroup_write") == 0){
+        command = vcgroup;
+    }
+    else if(strcmp(command_str, "vcgroup_read") == 0){
+        command = vcgroup;
+    }
     else if(strcmp(command_str, "help") == 0){
         printf(USAGE);
         exit(0);
     }
-    
+
     else{
         ERROR_ON("No such command. Use \"./molecule_rpc_client help\" to see the usage");
     }
@@ -188,7 +251,7 @@ int main(int argc, char *argv[]) {
     /////////////////////// MUST BE DESTROYED
     server_args_t server_args;
     parse_server_arguments(&server_args, argc - 1, argv + 1);
-    
+
     size = prepare_send_buf(test_buf, argc - 1, argv + 1, command);
 
     printf("port: %d, server_id: %d\n", server_args.os_port, server_args.server_id);

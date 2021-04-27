@@ -19,7 +19,8 @@
 enum COMMANDS{
     run,
     cfork,
-    send // use to send a single string message, for test
+    send, // use to send a single string message, for test
+    vcgroup
 };
 
 typedef struct cfork_args{
